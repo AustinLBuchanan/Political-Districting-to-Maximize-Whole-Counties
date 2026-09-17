@@ -8,7 +8,25 @@ Table 2 near the end of the paper shows the maximum number of whole counties ver
 
 ## Approach
 
-To solve this problem, we propose integer programming techniques based on combinatorial Benders decomposition. The main problem decides which counties to keep whole, and the subproblem coarsens the selected counties and then seeks a feasible plan. The subproblem is solved with a (nontrivial) extension of the cluster-sketch-detail approach from [our previous paper](https://github.com/maralshahmizad/Political-Districting-to-Minimize-County-Splits/tree/main), which optimized a different county preservation score. 
+To solve this problem, we propose integer programming techniques based on combinatorial Benders decomposition. The main problem decides which counties to keep whole, and the subproblem coarsens the selected counties and then seeks a feasible plan. The subproblem is solved with a (nontrivial) extension of the cluster-sketch-detail approach from [our previous paper](https://github.com/maralshahmizad/Political-Districting-to-Minimize-County-Splits/tree/main), which optimized a different county preservation score. A visualization follows.
+
+```
+Main Problem (Benders)
+    │
+    ▼
+Which counties are kept whole?
+    │
+    ├─── Coarsen selected whole counties into super-nodes
+    │
+    ▼
+Subproblem: Cluster–Sketch–Detail
+    │
+    ├── 1. CLUSTER  — Partition counties into county clusters
+    │
+    ├── 2. SKETCH   — Assign fractions of split counties to districts
+    │
+    └── 3. DETAIL   — Find a full tract/block-level districting plan
+```
 
 ## Example
 
@@ -30,6 +48,59 @@ This coarsened graph is still quite large, so we find a county clustering to dec
 Each miniature instance is divided into districts using *sketch* and *detail*, yielding the final max-whole map:
 ![Figure 6](IA.png?raw=true "Max-whole map")
 
+## Code Structure
+
+```
+Political-Districting-to-Maximize-Whole-Counties/
+│
+├── README.md                         ← This file
+├── format.md                         ← Explains file formats (.json, .baf, .shp)
+│
+├── ── Core Python Modules (src) ──
+├── main.py                           ← Main code: Benders main problem, solver, and cut loop
+├── initialize.py                     ← Generates initial inequalities for main problem
+├── wcd_finder.py                     ← Subroutine for initial inequalities: whole-county district finder
+├── minimalize.py                     ← Cut strengthening routine for main problem inequalities
+|
+├── csd.py                            ← Benders subproblem: applies cluster, sketch, detail
+├── cluster_for_max_whole.py          ← Cluster step: partitions counties into clusters
+├── sketch_for_max_whole.py           ← Sketch step: fractional county-to-district assignment
+├── detail_for_max_whole.py           ← Detail step: full tract/block-level MIP
+|
+├── coarsen.py                        ← Routines for coarsening graphs (e.g., by county or tract)
+├── util.py                           ← Misc utility functions (read graphs, get [L,U] bounds, etc)
+├── number_of_districts.py            ← Number of districts per state/type
+│
+├── ── Experiment Notebooks ──
+├── max_whole_experiments.ipynb       ← Main results across all states/types (Table 2 of paper)
+├── upper_bounds.ipynb                ← Initial upper bound results (Table 1)
+├── enacted_whole.ipynb               ← Calculations: # whole counties in enacted plans (for Table 2)
+├── FL_CD_ad_hoc.ipynb                ← Computationally proves ad-hoc inequality, Florida congressional
+├── GA_SH_ad_hoc.ipynb                ← Computationally proves ad-hoc inequality, Georgia state house
+|
+├── case_study.ipynb                  ← Tennessee state house case study (Wygant v. Lee), initial results
+├── case_study_13.ipynb               ← Tennessee state house case study, but now with 13 VRA districts
+├── upper_bounds_case_study.ipynb     ← Apply upper bounding code to visualize initial inequalities
+|
+├── visualization_of_approach.ipynb   ← Create visuals for Figure 4 and readme
+│
+├── ── Other Folders ──
+├── dat/                              ← where input data (.json, .baf, .shp) should be stored 
+├── case-study-plans/                 ← BAFs for all plans from the case study (Section 7 of paper)
+├── max-whole-plans/                  ← BAFs for max-whole plans from the present paper
+├── min-split-plans/                  ← BAFs for min-split plans from our previous paper
+└── png/                              ← PNG maps of initial inequalities for each state/type
+```
+
+## Dependencies
+
+- gurobipy
+- networkx
+- geopandas
+- matplotlib
+- numpy
+- pandas
+
 ## Results
 
 Our approach provides easy-to-understand optimality proofs suitable for courts and laypeople. Specifically, it produces a set family $ℐ$ with the property that at least one county from each set $I \in ℐ$ must be split. This is depicted as a county-level map in which a curve encircles each set $I\in ℐ$. Below are links to these initial inequalities $ℐ_0$. 
@@ -44,7 +115,7 @@ For (nearly) all instances, we obtain provably optimal maps. The only exception 
 | **AK** || <table><tr><td>[Inequalities](https://github.com/maralshahmizad/Political-Districting-to-Maximize-Whole-Counties/blob/main/src/png/AK_SS_inequalities.png)</td><td>[Map](https://davesredistricting.org/maps#viewmap::a2f26795-7c40-486a-a0fa-9f8249b14877)</td></tr></table>|<table><tr><td> [Inequalities](https://github.com/maralshahmizad/Political-Districting-to-Maximize-Whole-Counties/blob/main/src/png/AK_SH_inequalities.png)</td><td>[Map](https://davesredistricting.org/maps#viewmap::a94cda71-be5c-4ea3-b5ba-35a4c7c12b7d)</td></tr></table>|
 | **AR**|<table><tr><td>[Inequalities](https://github.com/maralshahmizad/Political-Districting-to-Maximize-Whole-Counties/blob/main/src/png/AR_CD_inequalities.png)</td><td>[Map](https://davesredistricting.org/maps#viewmap::005d1438-906e-4f70-bf9b-6da219dad0c1)</td></tr></table> | <table><tr><td>[Inequalities](https://github.com/maralshahmizad/Political-Districting-to-Maximize-Whole-Counties/blob/main/src/png/AR_SS_inequalities.png)</td><td>[Map](https://davesredistricting.org/maps#viewmap::a2c7ab11-bdc5-4a4c-af0d-bd505f1fc777)</td></tr></table>|<table><tr><td> [Inequalities](https://github.com/maralshahmizad/Political-Districting-to-Maximize-Whole-Counties/blob/main/src/png/AR_SH_inequalities.png)</td><td>[Map](https://davesredistricting.org/maps#viewmap::2e220c8a-e401-43b3-99a5-ecdbaf02ed79)</td></tr></table>|
 | **AZ**|<table><tr><td>[Inequalities](https://github.com/maralshahmizad/Political-Districting-to-Maximize-Whole-Counties/blob/main/src/png/AZ_CD_inequalities.png)</td><td>[Map](https://davesredistricting.org/maps#viewmap::3129d2f1-697d-431c-938f-1afb0ab8acda)</td></tr></table> | <table><tr><td>[Inequalities](https://github.com/maralshahmizad/Political-Districting-to-Maximize-Whole-Counties/blob/main/src/png/AZ_SS_inequalities.png)</td><td>[Map](https://davesredistricting.org/maps#viewmap::a50dd8cf-f34e-4c74-a906-c42d5e9c521a)</td></tr></table>|<table><tr><td> [Inequalities](https://github.com/maralshahmizad/Political-Districting-to-Maximize-Whole-Counties/blob/main/src/png/AZ_SH_inequalities.png)</td><td>[Map](https://davesredistricting.org/maps#viewmap::00847c9b-505d-499f-9ca2-b0303f85ad1e)</td></tr></table>|
-| **CA**|<table><tr><td>[Inequalities](https://github.com/maralshahmizad/Political-Districting-to-Maximize-Whole-Counties/blob/main/src/png/CA_CD_inequalities.png)</td><td>[Map](https://davesredistricting.org/maps#viewmap::ba3b167d-c048-4f3a-b504-15ab338721d6)</td></tr></table> | <table><tr><td>[Inequalities](https://github.com/maralshahmizad/Political-Districting-to-Maximize-Whole-Counties/blob/main/src/png/CA_SS_inequalities.png)</td><td>[Map](https://davesredistricting.org/maps#viewmap::670dcd00-919e-4bdc-8929-c38631672552)</td></tr></table>|<table><tr><td> [Inequalities](https://github.com/maralshahmizad/Political-Districting-to-Maximize-Whole-Counties/blob/main/src/png/CA_SH_inequalities.png)</td><td>[Map](https://davesredistricting.org/maps#viewmap::318ab477-a5d2-44cf-a032-c57c4592a9f6)</td></tr></table>|
+| **CA**|<table><tr><td>[Inequalities](https://github.com/maralshahmizad/Political-Districting-to-Maximize-Whole-Counties/blob/main/src/png/CA_CD_inequalities.png)</td><td>[Map](https://davesredistricting.org/join/bca390c7-5fa9-43b2-b9e3-0152e2e06ba4)</td></tr></table> | <table><tr><td>[Inequalities](https://github.com/maralshahmizad/Political-Districting-to-Maximize-Whole-Counties/blob/main/src/png/CA_SS_inequalities.png)</td><td>[Map](https://davesredistricting.org/maps#viewmap::670dcd00-919e-4bdc-8929-c38631672552)</td></tr></table>|<table><tr><td> [Inequalities](https://github.com/maralshahmizad/Political-Districting-to-Maximize-Whole-Counties/blob/main/src/png/CA_SH_inequalities.png)</td><td>[Map](https://davesredistricting.org/maps#viewmap::318ab477-a5d2-44cf-a032-c57c4592a9f6)</td></tr></table>|
 | **CO**|<table><tr><td>[Inequalities](https://github.com/maralshahmizad/Political-Districting-to-Maximize-Whole-Counties/blob/main/src/png/CO_CD_inequalities.png)</td><td>[Map](https://davesredistricting.org/maps#viewmap::99bfc8a5-3c12-4a61-b77e-32db6d8212f1)</td></tr></table> | <table><tr><td>[Inequalities](https://github.com/maralshahmizad/Political-Districting-to-Maximize-Whole-Counties/blob/main/src/png/CO_SS_inequalities.png)</td><td>[Map](https://davesredistricting.org/maps#viewmap::7e87577d-fb0b-46e1-8bea-06b95397fe74)</td></tr></table>|<table><tr><td> [Inequalities](https://github.com/maralshahmizad/Political-Districting-to-Maximize-Whole-Counties/blob/main/src/png/CO_SH_inequalities.png)</td><td>[Map](https://davesredistricting.org/maps#viewmap::df71ce70-91c7-4e30-bd4b-d0905f7d0b4a)</td></tr></table>|
 | **CT**|<table><tr><td>[Inequalities](https://github.com/maralshahmizad/Political-Districting-to-Maximize-Whole-Counties/blob/main/src/png/CT_CD_inequalities.png)</td><td>[Map](https://davesredistricting.org/maps#viewmap::4e3a813b-6f6f-42ed-96f3-217198c70de0)</td></tr></table> | <table><tr><td>[Inequalities](https://github.com/maralshahmizad/Political-Districting-to-Maximize-Whole-Counties/blob/main/src/png/CT_SS_inequalities.png)</td><td>[Map](https://davesredistricting.org/maps#viewmap::65a83b4b-aa78-47d8-9c80-8a6c3fc4d051)</td></tr></table>|<table><tr><td> [Inequalities](https://github.com/maralshahmizad/Political-Districting-to-Maximize-Whole-Counties/blob/main/src/png/CT_SH_inequalities.png)</td><td>[Map](https://davesredistricting.org/maps#viewmap::519bd313-3626-4ab0-8569-c9017cb9ae9a)</td></tr></table>|
 | **DE**| |<table><tr><td>[Inequalities](https://github.com/maralshahmizad/Political-Districting-to-Maximize-Whole-Counties/blob/main/src/png/DE_SS_inequalities.png)</td><td>[Map](https://davesredistricting.org/maps#viewmap::628f5666-0bb7-42f8-970c-feaff2afca4c)</td></tr></table>|<table><tr><td>[Inequalities](https://github.com/maralshahmizad/Political-Districting-to-Maximize-Whole-Counties/blob/main/src/png/DE_SH_inequalities.png)</td><td>[Map](https://davesredistricting.org/maps#viewmap::510198fd-e74c-4ee4-8850-e3f1b3a34a25)</td></tr></table>|
